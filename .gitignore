@@ -1,0 +1,19 @@
+# Build artifacts
+bin/
+generate
+logs/
+
+# Dependency / tooling caches
+*.log
+
+# Environment configuration
+.env
+.env.local
+
+# IDE/editor folders
+.idea/
+.vscode/
+
+# OS files
+*.DS_Store
+Thumbs.db
