@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 
 	"github.com/rcdevgames/modular-monolith-clean/internal/config"
 	"github.com/rcdevgames/modular-monolith-clean/internal/infrastructure/database"
@@ -18,13 +19,23 @@ import (
 	"github.com/rcdevgames/modular-monolith-clean/internal/server/httpresp"
 	"github.com/rcdevgames/modular-monolith-clean/internal/server/logging"
 	servermiddleware "github.com/rcdevgames/modular-monolith-clean/internal/server/middleware"
+	docs "github.com/rcdevgames/modular-monolith-clean/internal/server/swagger/docs"
 	"github.com/rcdevgames/modular-monolith-clean/internal/storage"
 )
+
+// @title Modular Monolith Clean API
+// @version 1.0
+// @description API documentation for the Modular Monolith Clean server.
+// @BasePath /api/v1
 
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config load: %v", err)
+	}
+
+	if cfg.Storage.CDNPort == cfg.App.Port {
+		log.Fatalf("configuration error: APP_PORT (%s) must differ from CDN_PORT (%s)", cfg.App.Port, cfg.Storage.CDNPort)
 	}
 
 	db, err := database.NewPostgresDB(cfg.Database)
@@ -48,10 +59,10 @@ func main() {
 	router.Use(middleware.RequestID, middleware.RealIP, middleware.Logger, middleware.Recoverer)
 	router.Use(servermiddleware.SecurityHeaders())
 	router.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		httpresp.Error(w, http.StatusNotFound, "route not found")
+		httpresp.Error(w, http.StatusNotFound, "Route not found", nil)
 	})
 	router.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
-		httpresp.Error(w, http.StatusMethodNotAllowed, "method not allowed")
+		httpresp.Error(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
 	})
 
 	healthHandler := healthcheck.NewHandler(db)
@@ -78,6 +89,16 @@ func main() {
 		log.Fatalf("register modules: %v", err)
 	}
 
+	docsBase := "/docs"
+	docs.SwaggerInfo.BasePath = "/api/v1"
+	if cfg.App.Env != "production" {
+		router.Get(docsBase, func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, docsBase+"/index.html", http.StatusTemporaryRedirect)
+		})
+		router.Get(docsBase+"/*", httpSwagger.Handler(
+			httpSwagger.URL(docsBase+"/doc.json"),
+		))
+	}
 	router.Mount("/api/v1", apiRouter)
 
 	addr := ":" + cfg.App.Port

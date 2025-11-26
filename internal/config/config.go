@@ -18,6 +18,7 @@ type Config struct {
 
 // AppConfig holds HTTP server specific settings.
 type AppConfig struct {
+	Env               string
 	Port              string
 	LogDir            string
 	RateLimitRequests int
@@ -27,12 +28,12 @@ type AppConfig struct {
 
 // CORSConfig defines cross-origin resource sharing behaviour.
 type CORSConfig struct {
-	AllowedOrigins     []string
-	AllowedMethods     []string
-	AllowedHeaders     []string
-	AllowCredentials   bool
-	ExposedHeaders     []string
-	MaxAge             time.Duration
+	AllowedOrigins   []string
+	AllowedMethods   []string
+	AllowedHeaders   []string
+	AllowCredentials bool
+	ExposedHeaders   []string
+	MaxAge           time.Duration
 }
 
 // DatabaseConfig describes the PostgreSQL connection details.
@@ -57,17 +58,17 @@ type SecurityConfig struct {
 
 // StorageConfig defines file storage behavior.
 type StorageConfig struct {
-	Provider      string
-	LocalDir      string
-	CDNBaseURL    string
-	CDNPort       string
-	S3Endpoint    string
-	S3Bucket      string
-	S3Region      string
-	S3AccessKey   string
-	S3SecretKey   string
-	S3UseSSL      bool
-	S3BaseURL     string
+	Provider    string
+	LocalDir    string
+	CDNBaseURL  string
+	CDNPort     string
+	S3Endpoint  string
+	S3Bucket    string
+	S3Region    string
+	S3AccessKey string
+	S3SecretKey string
+	S3UseSSL    bool
+	S3BaseURL   string
 }
 
 // Load reads configuration from environment variables, returning an error when
@@ -112,6 +113,7 @@ func Load() (*Config, error) {
 
 	return &Config{
 		App: AppConfig{
+			Env:               strings.ToLower(getEnvOrDefault("APP_ENV", "development")),
 			Port:              appPort,
 			LogDir:            getEnvOrDefault("LOG_DIR", "logs"),
 			RateLimitRequests: getEnvAsInt("RATE_LIMIT_REQUESTS", 100),

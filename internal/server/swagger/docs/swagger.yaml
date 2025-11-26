@@ -1,0 +1,141 @@
+basePath: /api/v1
+definitions:
+  entity.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  entity.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  entity.TokenPair:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  httpresp.ErrorResponse:
+    properties:
+      errors: {}
+      message:
+        type: string
+      status:
+        type: boolean
+      status_code:
+        type: integer
+    type: object
+  httpresp.SuccessResponse:
+    properties:
+      data: {}
+      message:
+        type: string
+      status:
+        type: boolean
+      status_code:
+        type: integer
+    type: object
+  validation.ErrorMap:
+    additionalProperties:
+      type: string
+    type: object
+info:
+  contact: {}
+  description: API documentation for the Modular Monolith Clean server.
+  title: Modular Monolith Clean API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate a user using email and password to obtain a token
+        pair.
+      parameters:
+      - description: Credentials
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/entity.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpresp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.TokenPair'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpresp.ErrorResponse'
+            - properties:
+                errors:
+                  $ref: '#/definitions/validation.ErrorMap'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpresp.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpresp.ErrorResponse'
+      summary: Login
+      tags:
+      - Auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Exchange a valid refresh token for a new token pair.
+      parameters:
+      - description: Refresh token
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/entity.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpresp.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.TokenPair'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpresp.ErrorResponse'
+            - properties:
+                errors:
+                  $ref: '#/definitions/validation.ErrorMap'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpresp.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpresp.ErrorResponse'
+      summary: Refresh Token
+      tags:
+      - Auth
+swagger: "2.0"

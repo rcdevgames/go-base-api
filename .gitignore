@@ -1,6 +1,7 @@
 # Build artifacts
 bin/
 generate
+!cmd/generate
 logs/
 
 # Dependency / tooling caches
@@ -17,3 +18,9 @@ logs/
 # OS files
 *.DS_Store
 Thumbs.db
+
+# AI generated files
+*.gptcache
+*.aicache
+.factory/
+CLAUDE.md

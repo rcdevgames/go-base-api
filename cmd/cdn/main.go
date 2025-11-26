@@ -22,6 +22,9 @@ func main() {
 	if storageCfg.CDNPort == "" {
 		addr = ":9090"
 	}
+	if appPort := os.Getenv("APP_PORT"); appPort != "" && appPort == storageCfg.CDNPort {
+		log.Fatalf("configuration error: CDN_PORT (%s) must differ from APP_PORT (%s)", storageCfg.CDNPort, appPort)
+	}
 	absDir, _ := filepath.Abs(dir)
 	log.Printf("CDN serving %s on %s", absDir, addr)
 	fs := http.FileServer(http.Dir(dir))

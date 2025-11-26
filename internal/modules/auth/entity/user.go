@@ -12,7 +12,5 @@ type User struct {
 // TokenPair contains access and refresh tokens.
 type TokenPair struct {
 	AccessToken        string `json:"access_token"`
-	AccessExpiresIn    int64  `json:"access_expires_in"`
 	RefreshToken       string `json:"refresh_token"`
-	RefreshExpiresIn   int64  `json:"refresh_expires_in"`
 }

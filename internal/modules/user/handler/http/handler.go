@@ -33,19 +33,19 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idParam := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idParam, 10, 64)
 	if err != nil {
-		httpresp.Error(w, http.StatusBadRequest, "invalid user id")
+		httpresp.Error(w, http.StatusBadRequest, "Invalid user id", nil)
 		return
 	}
 
 	user, err := h.service.GetByID(r.Context(), id)
 	if err != nil {
 		if err == repository.ErrNotFound {
-			httpresp.Error(w, http.StatusNotFound, err.Error())
+			httpresp.Error(w, http.StatusNotFound, "User not found", err.Error())
 			return
 		}
-		httpresp.Error(w, http.StatusInternalServerError, "unable to fetch user")
+		httpresp.Error(w, http.StatusInternalServerError, "Unable to fetch user", err.Error())
 		return
 	}
 
-	httpresp.JSON(w, http.StatusOK, user)
+	httpresp.JSON(w, http.StatusOK, "Success", user)
 }

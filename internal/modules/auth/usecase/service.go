@@ -94,10 +94,8 @@ func (s *serviceImpl) issueTokens(user *entity.User) (*entity.TokenPair, error) 
 		return nil, err
 	}
 	return &entity.TokenPair{
-		AccessToken:      accessToken,
-		AccessExpiresIn:  int64(s.accessTTL.Seconds()),
-		RefreshToken:     refreshToken,
-		RefreshExpiresIn: int64(s.refreshTTL.Seconds()),
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
 	}, nil
 }
 

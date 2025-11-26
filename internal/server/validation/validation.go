@@ -20,21 +20,24 @@ const (
 
 // Rule describes validation requirements for a single input.
 type Rule struct {
-	Name        string
-	Required    bool
-	Type        FieldType
-	MinLength   int
-	MaxLength   int
-	Pattern     *regexp.Regexp
-	Enum        []string
-	Custom      func(string) (interface{}, error)
+	Name      string
+	Required  bool
+	Type      FieldType
+	MinLength int
+	MaxLength int
+	Pattern   *regexp.Regexp
+	Enum      []string
+	Custom    func(string) (interface{}, error)
 }
 
 // Result represents validated values and per-field errors.
 type Result struct {
 	Values map[string]interface{}
-	Errors map[string]string
+	Errors ErrorMap
 }
+
+// ErrorMap represents a map of field names to validation error messages.
+type ErrorMap map[string]string
 
 // IsValid reports whether any validation error occurred.
 func (r Result) IsValid() bool {
@@ -44,7 +47,7 @@ func (r Result) IsValid() bool {
 // ValidateStrings validates a simple map input (e.g. parsed JSON/body).
 func ValidateStrings(input map[string]string, rules []Rule) Result {
 	values := make(map[string]interface{}, len(rules))
-	errs := make(map[string]string)
+	errs := make(ErrorMap)
 	allowed := make(map[string]map[string]struct{})
 	for _, rule := range rules {
 		if rule.Enum != nil {
