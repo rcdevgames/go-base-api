@@ -1,0 +1,155 @@
+// Jenkins Pipeline for Modular Monolith Go API
+// Place this file in the root of your repository as Jenkinsfile
+
+pipeline {
+    agent any
+
+    environment {
+        GO_VERSION = '1.21'
+        GOLANGCI_LINT_VERSION = '1.55'
+        DOCKER_IMAGE = "${env.DOCKER_REGISTRY ?: 'your-registry'}/modular-monolith"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Setup Go') {
+            steps {
+                script {
+                    // Install Go if not available
+                    sh '''
+                        if ! command -v go &> /dev/null; then
+                            wget -q https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz
+                            sudo tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz
+                            export PATH=$PATH:/usr/local/go/bin
+                            echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.bashrc
+                        fi
+                        go version
+                    '''
+                }
+            }
+        }
+
+        stage('Dependencies') {
+            steps {
+                sh 'go mod download'
+                sh 'go mod verify'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh '''
+                    go test ./... -v -race -coverprofile=coverage.out
+                    go tool cover -html=coverage.out -o coverage.html
+                '''
+            }
+            post {
+                always {
+                    publishCoverage adapters: [coberturaAdapter('coverage.out')]
+                    archiveArtifacts artifacts: 'coverage.html', fingerprint: true
+                }
+            }
+        }
+
+        stage('Lint') {
+            steps {
+                sh '''
+                    curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v${GOLANGCI_LINT_VERSION}
+                    golangci-lint run --timeout=5m
+                '''
+            }
+        }
+
+        stage('Security Scan') {
+            steps {
+                sh '''
+                    go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+                    gosec ./...
+                '''
+            }
+        }
+
+        stage('Build') {
+            steps {
+                script {
+                    if (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'develop') {
+                        sh """
+                            docker build -t ${DOCKER_IMAGE}:${env.BUILD_NUMBER} .
+                            docker build -t ${DOCKER_IMAGE}:latest .
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'develop'
+                }
+            }
+            steps {
+                script {
+                    docker.withRegistry(env.DOCKER_REGISTRY_URL ?: '', 'docker-registry-credentials') {
+                        sh """
+                            docker push ${DOCKER_IMAGE}:${env.BUILD_NUMBER}
+                            docker push ${DOCKER_IMAGE}:latest
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Staging') {
+            when {
+                branch 'develop'
+            }
+            steps {
+                script {
+                    echo "Deploying to staging environment"
+                    echo "Image: ${DOCKER_IMAGE}:${env.BUILD_NUMBER}"
+                    // Add your deployment commands here
+                    // Example: sh "kubectl set image deployment/app app=${DOCKER_IMAGE}:${env.BUILD_NUMBER}"
+                }
+            }
+        }
+
+        stage('Deploy to Production') {
+            when {
+                branch 'main'
+            }
+            steps {
+                script {
+                    echo "Deploying to production environment"
+                    echo "Image: ${DOCKER_IMAGE}:${env.BUILD_NUMBER}"
+                    // Add your deployment commands here
+                    // Example: sh "kubectl set image deployment/app app=${DOCKER_IMAGE}:${env.BUILD_NUMBER}"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'docker system prune -f'
+            cleanWs()
+        }
+        success {
+            echo 'Pipeline succeeded!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
+    }
+
+    options {
+        timeout(time: 1, unit: 'HOURS')
+        disableConcurrentBuilds()
+    }
+}

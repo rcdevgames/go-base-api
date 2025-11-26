@@ -61,7 +61,6 @@ type StorageConfig struct {
 	Provider    string
 	LocalDir    string
 	CDNBaseURL  string
-	CDNPort     string
 	S3Endpoint  string
 	S3Bucket    string
 	S3Region    string
@@ -230,8 +229,7 @@ func loadStorageConfig() StorageConfig {
 	return StorageConfig{
 		Provider:    provider,
 		LocalDir:    getEnvOrDefault("LOCAL_UPLOAD_DIR", "upload"),
-		CDNBaseURL:  getEnvOrDefault("CDN_BASE_URL", "http://localhost:9090"),
-		CDNPort:     getEnvOrDefault("CDN_PORT", "9090"),
+		CDNBaseURL:  getEnvOrDefault("CDN_BASE_URL", "http://localhost:8080/cdn"),
 		S3Endpoint:  os.Getenv("S3_ENDPOINT"),
 		S3Bucket:    os.Getenv("S3_BUCKET"),
 		S3Region:    os.Getenv("S3_REGION"),

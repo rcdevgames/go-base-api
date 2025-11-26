@@ -21,6 +21,7 @@ import (
 	servermiddleware "github.com/rcdevgames/modular-monolith-clean/internal/server/middleware"
 	docs "github.com/rcdevgames/modular-monolith-clean/internal/server/swagger/docs"
 	"github.com/rcdevgames/modular-monolith-clean/internal/storage"
+	"go.uber.org/zap"
 )
 
 // @title Modular Monolith Clean API
@@ -34,10 +35,6 @@ func main() {
 		log.Fatalf("config load: %v", err)
 	}
 
-	if cfg.Storage.CDNPort == cfg.App.Port {
-		log.Fatalf("configuration error: APP_PORT (%s) must differ from CDN_PORT (%s)", cfg.App.Port, cfg.Storage.CDNPort)
-	}
-
 	db, err := database.NewPostgresDB(cfg.Database)
 	if err != nil {
 		log.Fatalf("database: %v", err)
@@ -49,20 +46,30 @@ func main() {
 		log.Fatalf("storage init: %v", err)
 	}
 
-	if _, err := logging.Setup(cfg.App.LogDir); err != nil {
+	cleanup, err := logging.Setup(cfg.App.LogDir)
+	if err != nil {
 		log.Fatalf("logger setup: %v", err)
 	}
+	defer cleanup()
+
+	logger := logging.GetLogger()
 
 	ctr := container.New(cfg, db, store)
 
 	router := chi.NewRouter()
-	router.Use(middleware.RequestID, middleware.RealIP, middleware.Logger, middleware.Recoverer)
+	router.Use(middleware.RequestID, middleware.RealIP, servermiddleware.HTTPLogger(), middleware.Recoverer)
 	router.Use(servermiddleware.SecurityHeaders())
 	router.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		httpresp.Error(w, http.StatusNotFound, "Route not found", nil)
 	})
 	router.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
 		httpresp.Error(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
+	})
+
+	// CDN route for serving static files
+	router.Get("/cdn/*", func(w http.ResponseWriter, r *http.Request) {
+		fs := http.StripPrefix("/cdn/", http.FileServer(http.Dir(cfg.Storage.LocalDir)))
+		fs.ServeHTTP(w, r)
 	})
 
 	healthHandler := healthcheck.NewHandler(db)
@@ -86,7 +93,7 @@ func main() {
 	apiRouter.Use(servermiddleware.JWT(cfg.Security.JWTSecret, cfg.Security.JWTExpiration))
 	apiRouter.Use(servermiddleware.InterService(cfg.Security.InterServiceToken))
 	if err := modules.RegisterAll(ctr, apiRouter); err != nil {
-		log.Fatalf("register modules: %v", err)
+		logger.Fatal("register modules", zap.Error(err))
 	}
 
 	docsBase := "/docs"
@@ -102,8 +109,8 @@ func main() {
 	router.Mount("/api/v1", apiRouter)
 
 	addr := ":" + cfg.App.Port
-	log.Printf("API listening on %s", addr)
+	logger.Info("API listening", zap.String("address", addr))
 	if err := http.ListenAndServe(addr, router); err != nil {
-		log.Fatalf("server error: %v", err)
+		logger.Fatal("server error", zap.Error(err))
 	}
 }

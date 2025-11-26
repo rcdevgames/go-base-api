@@ -1,0 +1,122 @@
+# GitLab CI/CD Pipeline for Modular Monolith Go API
+# Place this file in the root of your repository as .gitlab-ci.yml
+
+stages:
+  - test
+  - build
+  - security
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  GO_VERSION: "1.21"
+  GOLANGCI_LINT_VERSION: "1.55"
+
+# Cache Go modules
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .go/pkg/mod/
+
+# Test stage
+test:
+  stage: test
+  image: golang:${GO_VERSION}-alpine
+  before_script:
+    - apk add --no-cache git
+    - go mod download
+  script:
+    - go test ./... -v -race -coverprofile=coverage.out
+    - go tool cover -html=coverage.out -o coverage.html
+  coverage: '/coverage: \d+\.\d+%/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.out
+    paths:
+      - coverage.html
+    expire_in: 1 week
+  only:
+    - merge_requests
+    - main
+    - develop
+
+# Lint stage
+lint:
+  stage: test
+  image: golangci/golangci-lint:v${GOLANGCI_LINT_VERSION}-alpine
+  script:
+    - golangci-lint run --timeout=5m
+  only:
+    - merge_requests
+    - main
+    - develop
+
+# Build stage
+build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker build -t $CI_REGISTRY_IMAGE:latest .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+    - docker push $CI_REGISTRY_IMAGE:latest
+  only:
+    - main
+    - develop
+
+# Security scan
+security_scan:
+  stage: security
+  image: securecodebox/cli:latest
+  script:
+    - scbctl scan --scan-type "gosec" --repo-url $CI_REPOSITORY_URL --branch $CI_COMMIT_REF_NAME
+  allow_failure: true
+  only:
+    - main
+    - develop
+
+# Deploy to staging
+deploy_staging:
+  stage: deploy
+  script:
+    - echo "Deploying to staging environment"
+    - echo "Image: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+    # Add your deployment commands here
+    # Example: kubectl set image deployment/app app=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  environment:
+    name: staging
+    url: https://staging-api.example.com
+  only:
+    - develop
+  when: manual
+
+# Deploy to production
+deploy_production:
+  stage: deploy
+  script:
+    - echo "Deploying to production environment"
+    - echo "Image: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+    # Add your deployment commands here
+    # Example: kubectl set image deployment/app app=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  environment:
+    name: production
+    url: https://api.example.com
+  only:
+    - main
+  when: manual
+
+# Cleanup old images (optional)
+cleanup:
+  stage: deploy
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker system prune -f
+  only:
+    - schedules

@@ -1,17 +1,20 @@
 package logging
 
 import (
-	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
 
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-// Setup configures the default logger to write to stdout and a rotating file inside logDir.
-// Caller should invoke the returned cleanup function when shutting down.
+// Logger is the global structured logger instance.
+var Logger *zap.Logger
+
+// Setup configures the structured logger with console and rotating file outputs.
+// Returns a cleanup function to be called on shutdown.
 func Setup(logDir string) (func(), error) {
 	if logDir == "" {
 		logDir = "logs"
@@ -20,8 +23,9 @@ func Setup(logDir string) (func(), error) {
 		return nil, err
 	}
 
+	// Create rotating file writer
 	pattern := filepath.Join(logDir, "app-%Y-%m-%d.log")
-	writer, err := rotatelogs.New(
+	fileWriter, err := rotatelogs.New(
 		pattern,
 		rotatelogs.WithLinkName(filepath.Join(logDir, "current.log")),
 		rotatelogs.WithRotationTime(24*time.Hour),
@@ -31,10 +35,31 @@ func Setup(logDir string) (func(), error) {
 		return nil, err
 	}
 
-	log.SetOutput(io.MultiWriter(os.Stdout, writer))
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	// Console encoder for development
+	consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
+
+	// JSON encoder for production
+	jsonEncoder := zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
+
+	// File core with JSON encoding
+	fileCore := zapcore.NewCore(jsonEncoder, zapcore.AddSync(fileWriter), zapcore.InfoLevel)
+
+	// Console core with console encoding
+	consoleCore := zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), zapcore.DebugLevel)
+
+	// Combine cores
+	core := zapcore.NewTee(fileCore, consoleCore)
+
+	// Create logger
+	Logger = zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
 
 	return func() {
-		_ = writer.Close()
+		_ = Logger.Sync()
+		_ = fileWriter.Close()
 	}, nil
+}
+
+// GetLogger returns the global logger instance.
+func GetLogger() *zap.Logger {
+	return Logger
 }

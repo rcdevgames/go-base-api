@@ -20,7 +20,6 @@ cmd/
   seed/            # go run ./cmd/seed (applies db/seeds)
   rename/          # search/replace module paths safely
   generate/        # module scaffolder
-  cdn/             # lightweight static file server for local uploads
 db/
   migrations/      # SQL files with -- +migrate directives
   seeds/           # SQL seed scripts
@@ -46,6 +45,7 @@ internal/
 
 - Go 1.25+
 - PostgreSQL instance
+- Docker & Docker Compose (optional, for containerized development)
 
 ## Configuration
 
@@ -66,6 +66,26 @@ BCRYPT_COST=10
 
 The application reads these via `internal/config`.
 
+## Docker Development
+
+For containerized development with PostgreSQL and optional MinIO:
+
+```bash
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f app
+
+# Stop services
+docker-compose down
+```
+
+Services:
+- **App**: API server on port 8080
+- **DB**: PostgreSQL on port 5432
+- **MinIO**: S3-compatible storage on ports 9000 (API) and 9001 (console)
+
 ## Make Targets
 
 | Command | Description |
@@ -78,7 +98,6 @@ The application reads these via `internal/config`.
 | `make migrate-seed` | Run seed scripts from `db/seeds`. |
 | `make rename old=<old> new=<new>` | Replace module paths across the repo. |
 | `make generate modules <name>` | Scaffold a new module (see below). |
-| `make run cmd=cdn` | Serve local uploads via the CDN server (or run `go run ./cmd/cdn`). |
 
 ## Database Migrations & Seeds
 
@@ -126,7 +145,7 @@ Unit tests live close to their usecases/handlers; focus on business logic (useca
 - **Add more middleware** under `internal/server/middleware` and register in `cmd/server`.
 - **Add more infrastructure adapters** (e.g., cache) in `internal/infrastructure` and surface them via the DI container.
 - **New modules**: use the generator, add migrations/seeds as needed, expose routes through the existing interface.
-- **Static uploads**: use the `storage` package (local uploads or S3/MinIO) and fetch base64 helpers from `internal/storage/uploader`. Serve local files via `cmd/cdn` or any CDN.
+- **Static uploads**: use the `storage` package (local uploads or S3/MinIO) and fetch base64 helpers from `internal/storage/uploader`. Serve local files via `/cdn` endpoint on the API server.
 - **Auth boundary**: the `auth` module exposes `/auth/login` and `/auth/refresh` endpoints, issuing/refreshing JWT pairs based on the shared user repository and configurable secrets.
 
 ## Security & Networking Notes

@@ -1,5 +1,4 @@
 APP_CMD=./cmd/server
-CDN_CMD=./cmd/cdn
 MIGRATE_CMD=./cmd/migration
 SEED_CMD=./cmd/seed
 RENAME_CMD=./cmd/rename
@@ -7,15 +6,11 @@ GEN_CMD=./cmd/generate
 SWAGGER_OUT=internal/server/swagger/docs
 SWAGGER_ENTRY=$(APP_CMD)/main.go
 
-.PHONY: run run-cdn migrate-up migrate-down migrate-seed build test rename generate swagger
+.PHONY: run migrate-up migrate-down migrate-seed build test rename generate swagger
 
 run:
 	@echo "🚀 Starting server..."
 	@set -a; [ -f .env ] && . ./.env; set +a; go run $(APP_CMD)
-
-run-cdn:
-	@echo "📦 Starting CDN server..."
-	@set -a; [ -f .env ] && . ./.env; set +a; go run $(CDN_CMD)
 
 migrate-up:
 	@echo "⬆️  Applying database migrations..."
@@ -30,11 +25,9 @@ migrate-seed:
 	@go run $(SEED_CMD)
 
 build:
-	@echo "🏗️  Building server and CDN binaries..."
+	@echo "🏗️  Building server binary..."
 	@mkdir -p bin
 	@go build -o bin/server $(APP_CMD)
-	@go build -o bin/cdn $(CDN_CMD)
-
 test:
 	@echo "🧪 Running tests..."
 	@go test ./...
